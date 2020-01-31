@@ -12,6 +12,9 @@ import SpriteKit
 // The library for controlling
 import GameplayKit
 
+// The library for the controller
+import GameController
+
 // The class created by default
 class GameScene: SKScene {
     
@@ -29,6 +32,9 @@ class GameScene: SKScene {
     
     // Self-explanatory
     override func didMove(to view: SKView) {
+        
+        // Check for game controllers
+        CheckForGameControllers()
         
         // Call the initialization function
         startGame()
@@ -56,6 +62,54 @@ class GameScene: SKScene {
         
         // Self-explanatory
         self.physicsBody = border
+    }
+    
+    @objc func disconnectControllers() {
+        // Pause the game if disconnected
+        
+        self.isPaused = true
+    }
+    
+    func setupControllerControls(controller: GCController) {
+        controller.extendedGamepad?.valueChangedHandler = {
+            (gamepad: GCExtendedGamepad, element: GCControllerElement) in
+            
+            // Add movement for sprites of the controllers
+            
+            self.controllerInputDetected(gamepad: gamepad, element: element, index: controller.playerIndex.rawValue)
+        }
+    }
+    
+    @objc func connControllers() {
+        // Unpause the game if currently paused
+        self.isPaused = false
+        
+        // Registers the controller to a player number
+        var indexNumber = 0
+        
+        for controller in GCController.controllers() {
+            
+            // Check if extended game controller
+            if controller.extendedGamepad != nil {
+                controller.playerIndex = GCControllerPlayerIndex.init(rawValue: indexNumber)!
+                
+                indexNumber += 1
+                
+                setupControllerControls(controller: controller)
+            }
+            
+        }
+    }
+    
+    func CheckForGameControllers() {
+        
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(connControllers), name: NSNotification.Name.GCControllerDidDisconnect, object: nil)
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(disconnectControllers), name: NSNotification.Name.GCControllerDidDisconnect, object: nil)
+        
+        
+        
     }
     
     // Always done at the start of a game
@@ -116,10 +170,15 @@ class GameScene: SKScene {
             main.run(SKAction.moveTo(x: main.position.x + 100, duration: 0.2))
         }
     }
+
+    
     
     // This is the update function every frame loop
     override func update(_ currentTime: TimeInterval) {
 
+        // Registers the controller to a player number
+        var indexNumber = 0
+        
         // Make the enemy paddle to align with the ball as much as possible
         enemy.run(SKAction.moveTo(x: ball.position.x, duration: 0.1))
         
@@ -130,6 +189,27 @@ class GameScene: SKScene {
         // If ball above the enemy, you win!
         else if ball.position.y >= enemy.position.y + 70 {
             addScore(playerWhoWon: main)
+        }
+        
+        for controller in GCController.controllers() {
+            
+            // Check if extended game controller
+            if controller.extendedGamepad != nil {
+                controller.playerIndex = GCControllerPlayerIndex.init(rawValue: indexNumber)!
+                
+                // Registers the controller to a player number
+                indexNumber += 1
+                
+                // Move your paddle to the left by 100 at 0.2 duration
+                if ((controller.extendedGamepad?.leftTrigger.isPressed)!) {
+                    main.run(SKAction.moveTo(x: main.position.x - 100, duration: 0.2))
+                }
+                // Move your paddle to the right by 100 at 0.2 duration
+                else if ((controller.extendedGamepad?.rightTrigger.isPressed)!) {
+                    main.run(SKAction.moveTo(x: main.position.x + 100, duration: 0.2))
+                }
+            }
+            
         }
         
     }
